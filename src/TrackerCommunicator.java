@@ -5,6 +5,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.MalformedURLException;
 import java.util.*;
+import java.nio.ByteBuffer;
+import java.io.*;
+
+import org.apache.commons.io.IOUtils;
 
 public class TrackerCommunicator {
 
@@ -25,6 +29,21 @@ public class TrackerCommunicator {
 		tracker.get();
 
 	}
+
+    public final static ByteBuffer INTERVAL_KEY = ByteBuffer.wrap(new byte[]
+    { 'i', 'n', 't', 'e', 'r', 'v', 'a', 'l' });
+
+    public final static ByteBuffer PEERS_KEY = ByteBuffer.wrap(new byte[]
+    { 'p', 'e', 'e', 'r', 's' });
+
+    public final static ByteBuffer PEER_ID_KEY = ByteBuffer.wrap(new byte[]
+    { 'p', 'e', 'e', 'r', ' ', 'i', 'd' });
+
+    public final static ByteBuffer IP_KEY = ByteBuffer.wrap(new byte[]
+    { 'i', 'p' });
+
+    public final static ByteBuffer PORT_KEY = ByteBuffer.wrap(new byte[]
+    { 'p', 'o', 'r', 't' });
 
 	public static final String[] PARAMETER_KEYS = {"info_hash", "peer_id", "port", "uploaded", "downloaded", "left", "event"};
 
@@ -72,18 +91,31 @@ public class TrackerCommunicator {
 		System.out.println("\nSending 'GET' request to URL : " + url);
 		System.out.println("Response Code : " + responseCode);
 
-		BufferedReader in = new BufferedReader(
-		        new InputStreamReader(con.getInputStream()));
-		String inputLine;
-		StringBuffer response = new StringBuffer();
+		// Read and keep response in bytes
+		byte[] response = IOUtils.toByteArray(con.getInputStream());
 
-		while ((inputLine = in.readLine()) != null) {
-			response.append(inputLine);
+		Map<ByteBuffer,Object> response_dictionary = (Map<ByteBuffer,Object>) Bencoder2.decode(response);
+
+		// Get the list of peers (dictionaries)
+		List<Map> peers_list = (List<Map>) response_dictionary.get(PEERS_KEY);
+
+		System.out.println("Intervals: " + response_dictionary.get(INTERVAL_KEY));
+
+		// Decode dictionaries and print info
+		Iterator<Map> peers_iterator = peers_list.iterator();
+		for (int i = 0; peers_iterator.hasNext(); i++) {
+
+			Map<ByteBuffer, Object> peer_dictionary = peers_iterator.next();
+
+			System.out.println(peer_dictionary);
+
+			String peer_id = new String(((ByteBuffer) peer_dictionary.get(PEER_ID_KEY)).array(),"ASCII");
+			String peer_ip = new String(((ByteBuffer) peer_dictionary.get(IP_KEY)).array(),"ASCII");
+
+			System.out.println("Peer #" + i + ": ID - " + peer_id
+							+ "  ,  IP - " + peer_ip + "  ,  PORT - " + peer_dictionary.get(PORT_KEY));
 		}
-		in.close();
-
-		//print result
-		System.out.println(response.toString());
-
 	}
 }
+
+
