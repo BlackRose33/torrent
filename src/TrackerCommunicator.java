@@ -55,7 +55,7 @@ public class TrackerCommunicator {
 		}
 
 		// Remove the trailing '&'
-		buffer = buffer.replaceAll(" &$", "");
+		buffer = buffer.replaceAll("&?$", "");
 
 		this.url = new URL(buffer);
 	}
