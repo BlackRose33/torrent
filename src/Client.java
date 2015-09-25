@@ -4,7 +4,6 @@ import java.nio.file.Paths;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.net.URI;
-import org.apache.commons.codec.binary.Base64;
 import java.net.URLEncoder;
 import java.io.*;
 
@@ -13,9 +12,10 @@ public class Client {
 	public static void main(String[] args) throws BencodingException, UnsupportedEncodingException {
 
 		byte[] data = null;
+		String path_to_file = argv[0];
 
 		try {
-			Path path = Paths.get(new URI("../Phase1.torrent"));
+			Path path = Paths.get(new URI(path_to_file));
 			data = Files.readAllBytes(path);
 		}
 
