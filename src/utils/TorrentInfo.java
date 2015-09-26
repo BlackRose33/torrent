@@ -1,4 +1,4 @@
-/*
+package utils;/*
  *  RUBTClient is a BitTorrent client written at Rutgers University for 
  *  instructional use.
  *  Copyright (C) 2009  Robert Moore II
@@ -123,7 +123,7 @@ public class TorrentInfo
 	public final ByteBuffer[] piece_hashes;
 	
 	/**
-	 * Creates a new TorrentInfo object from the specified byte array.  If the byte array is {@code null} or
+	 * Creates a new utils.TorrentInfo object from the specified byte array.  If the byte array is {@code null} or
 	 * has a length of 0(zero), then an {@code IllegalArgumentException} is thrown.
 	 * @param torrent_file_bytes
 	 * @throws BencodingException
@@ -139,7 +139,7 @@ public class TorrentInfo
 		this.torrent_file_bytes = torrent_file_bytes;
 		
 		// Assign the metainfo map
-		this.torrent_file_map = (Map<ByteBuffer,Object>)Bencoder2.decode(torrent_file_bytes);
+		this.torrent_file_map = (Map<ByteBuffer,Object>) Bencoder2.decode(torrent_file_bytes);
 		
 		// Try to extract the announce URL
 		ByteBuffer url_buff = (ByteBuffer)this.torrent_file_map.get(TorrentInfo.KEY_ANNOUNCE);

@@ -1,4 +1,4 @@
-/*
+package utils;/*
  *  RUBTClient is a BitTorrent client written at Rutgers University for 
  *  instructional use.
  *  Copyright (C) 2008-2011  Robert Moore II
@@ -36,7 +36,7 @@ public final class BencodingException extends Exception
     private final String message;
     
     /**
-     * Creates a new BencodingException with a blank message.
+     * Creates a new utils.BencodingException with a blank message.
      */
     public BencodingException()
     {
@@ -44,7 +44,7 @@ public final class BencodingException extends Exception
     }
     
     /**
-     * Creates a new BencodingException with the message provided.
+     * Creates a new utils.BencodingException with the message provided.
      * @param message the message to display to the user.
      */
     public BencodingException(final String message)
