@@ -1,12 +1,13 @@
+import exceptions.TrackerCommunicatorException;
 import utils.BencodingException;
 import utils.TorrentInfo;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.io.*;
 
 public class RUBTClient {
 
@@ -67,19 +68,21 @@ public class RUBTClient {
 		 */
 		System.out.println("\n-------------- Operations with tracker ----------\n");
 
+		amount_left = Integer.toString(torrent.file_length);
+
 		// HashMap to store GET parameters as key-value pairs
 		HashMap<String, String> parameters = new HashMap<String, String>();
 
 		// Parameters values
-		String[] values = {
-			hash_hex,							// SHA1 Hash (in HEX and URL encoded)
-			PEER_ID,							// Peer ID of this client
-			// TO DO: Change port to use after a port verification has been done
-			LOWEST_PORT_TO_USE,					// Port this client is/will using/use
-			amount_uploaded,
-			amount_downloaded,
-			amount_left,
-			event
+		String[] values = new String[]{
+				hash_hex,                            // SHA1 Hash (in HEX and URL encoded)
+				PEER_ID,                            // Peer ID of this client
+				// TO DO: Change port to use after a port verification has been done
+				LOWEST_PORT_TO_USE,                    // Port this client is/will using/use
+				amount_uploaded,
+				amount_downloaded,
+				amount_left,
+				event
 		};
 
 		// Add key-value pairs to parameters hashmap
@@ -91,10 +94,16 @@ public class RUBTClient {
 
 		// Test this shit
 		System.out.println("Testing 1 - Send Http GET request");
-		tracker.get();
+		Map<ByteBuffer,Object> response_dictionary = tracker.get();
+
+		PeerCommunicator pc = new PeerCommunicator(response_dictionary, torrent, PEER_ID);
 
 
-		System.out.println();
+
+		Peer peer = pc.getPeer();
+		peer.printPeerData();
+		pc.getFileFromPeer(peer);
+
 	}
 
 	/* helper methods for testing */

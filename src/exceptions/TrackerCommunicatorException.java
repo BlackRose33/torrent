@@ -1,3 +1,5 @@
+package exceptions;
+
 import java.util.*;
 
 public class TrackerCommunicatorException extends Exception {

@@ -1,11 +1,11 @@
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.MalformedURLException;
-import java.net.URLEncoder;
 import java.util.*;
 import java.nio.ByteBuffer;
 import java.io.*;
 
+import exceptions.TrackerCommunicatorException;
 import utils.Bencoder2;
 
 public class TrackerCommunicator {
@@ -68,10 +68,7 @@ public class TrackerCommunicator {
 			if (parameters.get(key) == null)
 				throw new TrackerCommunicatorException("One of the required GET parameters is NULL");
 
-			buffer += key + "=" + parameters.get(key) + "&";
-
-//			if(!key.equals("info_hash"))buffer += key + "=" + URLEncoder.encode(parameters.get(key), "UTF-8") + "&";
-//			else buffer += key + "=" + parameters.get(key) + "&";
+			buffer += key + "=" + parameters.get(key) + "&"; //TODO: encode URL properly
 		}
 
 		// Remove the trailing '&'
@@ -81,7 +78,7 @@ public class TrackerCommunicator {
 	}
 
 	// HTTP GET request
-	public void get() throws Exception {
+	public Map<ByteBuffer,Object> get() throws Exception {
 
 		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
@@ -110,12 +107,14 @@ public class TrackerCommunicator {
 
 			System.out.println(peer_dictionary);
 
-			String peer_id = new String(((ByteBuffer) peer_dictionary.get(PEER_ID_KEY)).array(),"ASCII");
-			String peer_ip = new String(((ByteBuffer) peer_dictionary.get(IP_KEY)).array(),"ASCII");
+			String peer_id = new String(((ByteBuffer) peer_dictionary.get(PEER_ID_KEY)).array(), "ASCII");
+			String peer_ip = new String(((ByteBuffer) peer_dictionary.get(IP_KEY)).array(), "ASCII");
 
 			System.out.println("Peer #" + i + ": ID - " + peer_id
 							+ "  ,  IP - " + peer_ip + "  ,  PORT - " + peer_dictionary.get(PORT_KEY));
 		}
+
+		return response_dictionary;
 	}
 
 	public static byte[] getByteArray(HttpURLConnection connection) throws IOException{
@@ -124,7 +123,7 @@ public class TrackerCommunicator {
 		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
 		int nRead;
-		byte[] data = new byte[16384];  //NOTE: Is it sufficiently enough of memory?
+		byte[] data = new byte[16384];  	//TODO: Is it sufficiently enough of memory?
 
 		while ((nRead = is.read(data, 0, data.length)) != -1) {
 			buffer.write(data, 0, nRead);
