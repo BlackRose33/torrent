@@ -98,7 +98,11 @@ public class PeerCommunicator {
 
             verifyHandShakeResponse(handshakeResponse, handshake, peer.getId());
 
-        }finally{
+            outData.write(buildInterestedMessage());
+
+            
+
+        } finally {
             closeDataInputStream(inData);
             closeDataOutputStream(outData);
             closeSocket(socket);
@@ -108,6 +112,13 @@ public class PeerCommunicator {
 
     }
 
+    public byte[] buildInterestedMessage(){
+        byte[] interested = new byte[5];
+        Arrays.fill(interested, (byte) 0x00);
+        interested[4] = 0x01;
+        interested[5] = 0x02;
+        return interested;
+    }
 
     public boolean verifyHandShakeResponse(byte[] handshakeResponse, byte[] handshake, String peerIdExpected) throws Exception{
 
