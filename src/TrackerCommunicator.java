@@ -1,6 +1,3 @@
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.MalformedURLException;
@@ -8,7 +5,8 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.io.*;
 
-import org.apache.commons.io.IOUtils;
+import exceptions.TrackerCommunicatorException;
+import utils.Bencoder2;
 
 public class TrackerCommunicator {
 
@@ -56,7 +54,7 @@ public class TrackerCommunicator {
 	}
 
 	public TrackerCommunicator(String baseURL, Map<String, String> parameters) 
-			throws MalformedURLException, TrackerCommunicatorException {
+			throws MalformedURLException, TrackerCommunicatorException, UnsupportedEncodingException {
 
 		this.parameters = parameters;
 
@@ -70,7 +68,7 @@ public class TrackerCommunicator {
 			if (parameters.get(key) == null)
 				throw new TrackerCommunicatorException("One of the required GET parameters is NULL");
 
-			buffer += key + "=" + parameters.get(key) + "&";
+			buffer += key + "=" + parameters.get(key) + "&"; //TODO: encode URL properly
 		}
 
 		// Remove the trailing '&'
@@ -80,19 +78,19 @@ public class TrackerCommunicator {
 	}
 
 	// HTTP GET request
-	public void get() throws Exception {
+	public Map<ByteBuffer,Object> get() throws Exception {
 
-		HttpURLConnection con = (HttpURLConnection) url.openConnection();
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
 		// optional default is GET
-		con.setRequestMethod("GET");
+		connection.setRequestMethod("GET");
 
-		int responseCode = con.getResponseCode();
+		int responseCode = connection.getResponseCode();
 		System.out.println("\nSending 'GET' request to URL : " + url);
 		System.out.println("Response Code : " + responseCode);
 
 		// Read and keep response in bytes
-		byte[] response = IOUtils.toByteArray(con.getInputStream());
+		byte[] response = getByteArray(connection);
 
 		Map<ByteBuffer,Object> response_dictionary = (Map<ByteBuffer,Object>) Bencoder2.decode(response);
 
@@ -109,12 +107,31 @@ public class TrackerCommunicator {
 
 			System.out.println(peer_dictionary);
 
-			String peer_id = new String(((ByteBuffer) peer_dictionary.get(PEER_ID_KEY)).array(),"ASCII");
-			String peer_ip = new String(((ByteBuffer) peer_dictionary.get(IP_KEY)).array(),"ASCII");
+			String peer_id = new String(((ByteBuffer) peer_dictionary.get(PEER_ID_KEY)).array(), "ASCII");
+			String peer_ip = new String(((ByteBuffer) peer_dictionary.get(IP_KEY)).array(), "ASCII");
 
 			System.out.println("Peer #" + i + ": ID - " + peer_id
 							+ "  ,  IP - " + peer_ip + "  ,  PORT - " + peer_dictionary.get(PORT_KEY));
 		}
+
+		return response_dictionary;
+	}
+
+	public static byte[] getByteArray(HttpURLConnection connection) throws IOException{
+
+		InputStream is = connection.getInputStream();
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+		int nRead;
+		byte[] data = new byte[16384];  	//TODO: Is it sufficiently enough of memory?
+
+		while ((nRead = is.read(data, 0, data.length)) != -1) {
+			buffer.write(data, 0, nRead);
+		}
+
+		buffer.flush();
+
+		return buffer.toByteArray();
 	}
 }
 

@@ -1,4 +1,4 @@
-/*
+package utils;/*
  *  RUBTClient is a BitTorrent client written at Rutgers University for 
  *  instructional use.
  *  Copyright (C) 2008-2009  Robert Moore II
@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//package GivenTools;
+
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

@@ -1,11 +1,13 @@
+import exceptions.TrackerCommunicatorException;
+import utils.BencodingException;
+import utils.TorrentInfo;
+
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.nio.file.Path;
 import java.nio.file.Files;
-import java.net.URI;	
-import java.net.URLEncoder;
-import java.io.*;
 
 public class RUBTClient {
 
@@ -29,19 +31,22 @@ public class RUBTClient {
 
 	public static void main(String[] args) throws BencodingException, IOException, TrackerCommunicatorException, Exception {
 
-		byte[] data = null;
-		String path_to_file = args[0];
-
-		try {
-			// Create new file object for the input
-			File input_file = new File(path_to_file);
-
-			// Load the byte of the file into an array
-			data = Files.readAllBytes(input_file.toPath());
+		if(args.length != 2){
+			System.out.println("Please, provide 2 arguments: torrent file and the file to save the data to");
+			return;
 		}
 
-		catch (Exception e) {
-			System.out.println("Bad");
+		String torrentFile = args[0];
+		String toFile = args[1];
+
+		byte[] data = null;
+
+		try {
+			Path path = Paths.get(torrentFile);
+			data = Files.readAllBytes(path);
+		}catch(Exception e){
+			System.out.println(e);
+			return;
 		}
 
 		// Create torrent file parser object to get info from it
@@ -55,14 +60,7 @@ public class RUBTClient {
 			hash_hex += "%" + String.format("%02X",info_hash[i]);
 		}
 
-		System.out.println("\n-------------- Operations with torrent file ----------\n");
-		System.out.println(
-			"URL of the tracker: " + torrent.announce_url.toString()
-		  + "\nPiece length: " + torrent.piece_length
-		  + "\nFile name: " + torrent.file_name
-		  + "\nFile length: " + torrent.file_length
-		  + "\npiece_hashes array length " + torrent.piece_hashes.length
-		  + "\nSHA-1 hash value (in hex): " + hash_hex);
+		printTorrentInfo(torrent, hash_hex);
 
 
 		/**
@@ -70,19 +68,21 @@ public class RUBTClient {
 		 */
 		System.out.println("\n-------------- Operations with tracker ----------\n");
 
+		amount_left = Integer.toString(torrent.file_length);
+
 		// HashMap to store GET parameters as key-value pairs
 		HashMap<String, String> parameters = new HashMap<String, String>();
 
 		// Parameters values
-		String[] values = {
-			hash_hex,							// SHA1 Hash (in HEX and URL encoded)
-			PEER_ID,							// Peer ID of this client
-			// TO DO: Change port to use after a port verification has been done
-			LOWEST_PORT_TO_USE,					// Port this client is/will using/use
-			amount_uploaded.toString(),
-			amount_downloaded.toString(),
-			amount_left.toString(),
-			event
+		String[] values = new String[]{
+				hash_hex,                            // SHA1 Hash (in HEX and URL encoded)
+				PEER_ID,                            // Peer ID of this client
+				// TO DO: Change port to use after a port verification has been done
+				LOWEST_PORT_TO_USE,                    // Port this client is/will using/use
+				amount_uploaded,
+				amount_downloaded,
+				amount_left,
+				event
 		};
 
 		// Add key-value pairs to parameters hashmap
@@ -94,9 +94,27 @@ public class RUBTClient {
 
 		// Test this shit
 		System.out.println("Testing 1 - Send Http GET request");
-		tracker.get();
+		Map<ByteBuffer,Object> response_dictionary = tracker.get();
+
+		PeerCommunicator pc = new PeerCommunicator(response_dictionary, torrent, PEER_ID);
 
 
-		System.out.println();
+
+		Peer peer = pc.getPeer();
+		peer.printPeerData();
+		pc.getFileFromPeer(peer);
+
+	}
+
+	/* helper methods for testing */
+	public static void printTorrentInfo(TorrentInfo torrent, String hash_hex){
+		System.out.println("\n-------------- Operations with torrent file ----------\n");
+		System.out.println(
+				"URL of the tracker: " + torrent.announce_url.toString()
+						+ "\nPiece length: " + torrent.piece_length
+						+ "\nFile name: " + torrent.file_name
+						+ "\nFile length: " + torrent.file_length
+						+ "\npiece_hashes array length " + torrent.piece_hashes.length
+						+ "\nSHA-1 hash value (in hex): " + hash_hex);
 	}
 }
