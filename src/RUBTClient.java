@@ -1,25 +1,31 @@
 import exceptions.TrackerCommunicatorException;
+import model.Peer;
+import model.TorrentStats;
 import utils.BencodingException;
 import utils.TorrentInfo;
+import utils.Utils;
 
-import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashMap;
+
+import static utils.Utils.printlnLog;
 
 public class RUBTClient {
 
+
 	// The peer id of this client
-	private static final String PEER_ID = "0123456789abcdefghij";
+	private static final String PEER_ID_PREFIX = "nc409RUgmsohbx_";
+	private static final String PEER_ID = PEER_ID_PREFIX + System.currentTimeMillis();
 
 	// The ports this client might use (range from lowest to highest)
 	private static final String LOWEST_PORT_TO_USE = "6881";
 	private static final String HIGHES_PORT_TO_USE = "6889";
 
 	// How much this client has uploaded or downloaded to/from another peer
-	// Not making uploaded amount a final value because I think it'll be used in later phases
 	private static String amount_uploaded = "0";
 	private static String amount_downloaded = "0";
 
@@ -32,7 +38,7 @@ public class RUBTClient {
 	public static void main(String[] args) throws BencodingException, IOException, TrackerCommunicatorException, Exception {
 
 		if(args.length != 2){
-			System.out.println("Please, provide 2 arguments: torrent file and the file to save the data to");
+			printlnLog("Please, provide 2 arguments: torrent file and the file to save the data to");
 			return;
 		}
 
@@ -44,8 +50,14 @@ public class RUBTClient {
 		try {
 			Path path = Paths.get(torrentFile);
 			data = Files.readAllBytes(path);
-		}catch(Exception e){
+		} catch (Exception e) {
 			System.out.println(e);
+			return;
+		}
+
+		File outFile = getFile(toFile);
+		if (outFile == null) {
+			Utils.printLog("File path is invalid : " + toFile);
 			return;
 		}
 
@@ -63,10 +75,7 @@ public class RUBTClient {
 		printTorrentInfo(torrent, hash_hex);
 
 
-		/**
-		 *  TRACKER OPERATIONS
-		 */
-		System.out.println("\n-------------- Operations with tracker ----------\n");
+		printlnLog("----------- Operations with tracker ----------");
 
 		amount_left = Integer.toString(torrent.file_length);
 
@@ -92,18 +101,34 @@ public class RUBTClient {
 		// Create new TrackerCommunicator
 		TrackerCommunicator tracker = new TrackerCommunicator(torrent.announce_url.toString(), parameters);
 
-		// Test this shit
-		System.out.println("Testing 1 - Send Http GET request");
-		Map<ByteBuffer,Object> response_dictionary = tracker.get();
+		printlnLog("Testing 1 - Send Http GET request");
+		tracker.get();
 
-		PeerCommunicator pc = new PeerCommunicator(response_dictionary, torrent, PEER_ID);
+		// temporary use first peer from the list of chosen peers
+		Peer peer = tracker.getPeers().get(0);
+		printlnLog("First peer : " + peer);
 
-
-
-		Peer peer = pc.getPeer();
-		peer.printPeerData();
+		TorrentStats torrentStats = new TorrentStats(torrent, PEER_ID, outFile);
+		PeerCommunicator pc = new PeerCommunicator(peer, torrentStats);
 		pc.getFileFromPeer(peer);
 
+	}
+
+	/* create output file if possible */
+	private static File getFile(String toFile) {
+		try {
+			Path outPath = Paths.get(toFile);
+			boolean exists = Files.exists(outPath);
+			if (exists) {
+				Utils.printLog("File already exists so overwrite : " + toFile);
+				Files.delete(outPath);
+			}
+			Files.createFile(outPath);
+			return outPath.toFile();
+		} catch (Exception e) {
+			Utils.printLog("Can not get file, error message : " + e.getMessage());
+		}
+		return null;
 	}
 
 	/* helper methods for testing */

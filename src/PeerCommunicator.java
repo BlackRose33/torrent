@@ -1,13 +1,19 @@
 import exceptions.PeerCommunicationException;
-import utils.TorrentInfo;
+import model.*;
+import utils.MsgUtils;
+import utils.RandomAccessFileWriter;
+import utils.Utils;
 
-import java.net.Socket;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.io.*;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+
+import static utils.Utils.printLog;
+import static utils.Utils.printlnLog;
+
+
+
 
 /**
  * Created by nadiachepurko on 9/26/15.
@@ -15,164 +21,259 @@ import java.io.*;
 
 public class PeerCommunicator {
 
-    public final static ByteBuffer INTERVAL_KEY = ByteBuffer.wrap(new byte[]
-            { 'i', 'n', 't', 'e', 'r', 'v', 'a', 'l' });
+    private final static int THREAD_SLEEP_INTERVAL = 1000; /* 1 second */
 
-    public final static ByteBuffer PEERS_KEY = ByteBuffer.wrap(new byte[]
-            { 'p', 'e', 'e', 'r', 's' });
-
-    public final static ByteBuffer PEER_ID_KEY = ByteBuffer.wrap(new byte[]
-            { 'p', 'e', 'e', 'r', ' ', 'i', 'd' });
-
-    public final static ByteBuffer IP_KEY = ByteBuffer.wrap(new byte[]
-            { 'i', 'p' });
-
-    public final static ByteBuffer PORT_KEY = ByteBuffer.wrap(new byte[]
-            { 'p', 'o', 'r', 't' });
-
-    private Map<ByteBuffer,Object> response_dictionary;
-    private TorrentInfo torrent;
+    private RandomAccessFileWriter fileWriter;
+    private TorrentStats torrentStats;
     private Peer peer;
-    private String peerId;
 
-    public PeerCommunicator(Map<ByteBuffer,Object> response_dictionary, TorrentInfo torrent, String peerId){
-        this.response_dictionary = response_dictionary;
-        this.torrent = torrent;
-        peer = new Peer();
-        this.peerId = peerId;
+    // blocks requests has been already sent to peer and waiting response
+    private Set<Block> unansweredQueue = new HashSet<Block>();
+
+    // all blocks of the file we are going to request from peers
+    private Queue<Block> requestQueue = new LinkedList<Block>();
+
+    public PeerCommunicator(Peer peer, TorrentStats torrentStats){
+        this.torrentStats = torrentStats;
+        this.peer = peer;
     }
 
-    public Peer getPeer(){
-        List<Map> peers_list = (List<Map>) response_dictionary.get(PEERS_KEY);
+    public void getFileFromPeer(Peer peer) throws Exception {
 
-        Iterator<Map> peers_iterator = peers_list.iterator();
-        for (int i = 0; peers_iterator.hasNext(); i++) {
-
-            Map<ByteBuffer, Object> peer_dictionary = peers_iterator.next();
-
-            System.out.println(peer_dictionary);
-
-            String peer_id = new String(((ByteBuffer) peer_dictionary.get(PEER_ID_KEY)).array());
-            String peer_ip = new String(((ByteBuffer) peer_dictionary.get(IP_KEY)).array());
-            Integer peer_port = (Integer)peer_dictionary.get(PORT_KEY);
-
-            if(peer_id.contains("RU")){
-                peer.setPeerId(peer_id);
-                peer.setPeerIP(peer_ip);
-                peer.setPeerPort(peer_port);
-                return peer;
-            }
-        }
-        return null;
-    }
-
-    public void getFileFromPeer(Peer peer) throws Exception{
-
-        if(peer == null){
+        if (peer == null) {
             throw new PeerCommunicationException("Peer is null");
         }
 
-        Socket socket = null;
-        InputStream inputStream = null;
-        OutputStream outputStream = null;
-        DataOutputStream outData = null;
-        DataInputStream inData = null;
-
         try {
-            socket = new Socket(peer.getIp(), peer.getPort());
-            inputStream = socket.getInputStream();
-            outputStream = socket.getOutputStream();
-            outData = new DataOutputStream(outputStream);
-            inData = new DataInputStream(inputStream);
+            fileWriter = new RandomAccessFileWriter(torrentStats.getOutFile());
+            generateRequestsQueue();
 
-            byte[] handshake = buildHandShake();
-            outData.write(handshake);
-            outData.flush();
+            peer.openConnection();
 
-            socket.setSoTimeout(2000);
+            // send handshake and verify response
+            peer.makeHandshake(torrentStats.getClientPeerId(), torrentStats.getTorrent().info_hash.array());
 
-            byte[] handshakeResponse = new byte[68];
-            inData.readFully(handshakeResponse);
+            // Bitfield message: A peer MUST send this message immediately after the handshake operation,
+            // and MAY choose not to send it if it has no pieces at all.
+            // This message MUST not be sent at any other time during the communication.
+            peer.sendBitfield(torrentStats);
 
-            System.out.println("\nHandshake response: " + new String(handshakeResponse));
+            // Interested message: This message has ID 2 and no payload.
+            // A peer sends this message to a remote peer to inform the remote peer of its desire to request data.
+            peer.sendInterested();
 
-            verifyHandShakeResponse(handshakeResponse, handshake, peer.getId());
+            // read peer bitfield message. Remote peer must send it after the handshake was performed
+            Message bitfield = peer.receiveMessage();
 
-            outData.write(buildInterestedMessage());
+            // if peer did not send bitfiled after handshake then it did not downloaded any pieces of file
+            if (bitfield != null) {
+                printlnLog("Peer bitfield : " + bitfield.toString());
+                handleBitfield(bitfield);
 
+                while (!torrentStats.isFileDownloaded()) {
+                    Message message = peer.receiveMessage();
+                    Utils.printLog("Received message : " + message);
+                    updateConnectionState(message); //handle choke or unchoke messages
 
+                    if (peer.amIDownloadingFromPeer()) {
 
-            
+                        if (message != null) {
+                            switch (message.getType()) {
+                                case MsgType.HAVE:
+                                    handleHave(message);
+                                    break;
+                                case MsgType.REQUEST:
+                                    handleRequest(message);
+                                    break;
+                                case MsgType.PIECE:
+                                    handlePiece(message);
+                                    break;
+                                case MsgType.CANCEL:
+                                    handleCancel(message);
+                                    break;
+                            }
+                        }
+
+                        boolean sent = sendRequest();
+                        printLog("After pipping requests sent = " + sent);
+
+                    } else {
+                        Thread.sleep(THREAD_SLEEP_INTERVAL);
+                    }
+
+                }
+
+            } else {
+                printlnLog("Peer did not downloaded any piece of file yet so close connection");
+            }
+
+            printlnLog("Finished Peer Communicator!");
 
         } finally {
-            closeDataInputStream(inData);
-            closeDataOutputStream(outData);
-            closeSocket(socket);
+            peer.closeConnection();
+            fileWriter.close();
         }
 
-
-
     }
 
-    public byte[] buildInterestedMessage(){
-        byte[] interested = new byte[5];
-        Arrays.fill(interested, (byte) 0x00);
-        interested[4] = 0x01;
-        interested[5] = 0x02;
-        return interested;
+    /**
+     * Try to pipeline data requests in order so saturate active connections
+     * @return true if sent any message
+     */
+    private boolean sendRequest() {
+        printlnLog("Sending request : ");
+        Block request = requestQueue.poll();
+        return trySend(request);
     }
 
-    public boolean verifyHandShakeResponse(byte[] handshakeResponse, byte[] handshake, String peerIdExpected) throws Exception{
-
-        if (!Arrays.equals(Arrays.copyOf(handshake, 48), Arrays.copyOf(handshakeResponse, 48))) {
-            throw new PeerCommunicationException("Handshake response was not verified");
+    /* try to request a block of data */
+    private boolean trySend(Block request) {
+        printLog("Try to send request => " + request);
+        try {
+            peer.sendMessage(MsgUtils.buildRequest(request));
+            unansweredQueue.add(request);
+            return true;
+        } catch (Exception e) {
+            requestQueue.add(request);
+            unansweredQueue.remove(request);
         }
-        String peerIdActual = new String(Arrays.copyOfRange(handshakeResponse, 48, 68));
-        if(!peerIdActual.equals(peerIdExpected)){
-            throw new PeerCommunicationException("Peer names do not match in a handshake response");
-        }
-        return true;
+        return false;
     }
 
-    public byte[] buildHandShake(){
-
-        byte[] handshake = new byte[68];
-        handshake[0] = (byte) 19;
-        byte [] btname = new byte [] {'B','i','t','T','o','r','r','e','n','t',' ','p','r','o','t','o','c','o','l'};
-        System.arraycopy(btname, 0, handshake, 1, 19);
-        System.arraycopy(torrent.info_hash.array(), 0, handshake, 28, 20);
-        System.arraycopy(peerId.getBytes(), 0, handshake, 48, 20 );
-        return handshake;
-    }
-
-    public void closeSocket(Socket socket){
-        if(socket != null){
-            try {
-                socket.close();
-            }catch(Exception e){
-                System.out.println(e);
+    /* create queue with all blocks for all pieces we want to request in the future */
+    private void generateRequestsQueue() {
+        for (int i = 0; i < torrentStats.getPieceNumber(); i++) {
+            if (i == torrentStats.getPieceNumber() - 1) {
+                if (torrentStats.getLastPieceBlockNumber() > 1) {
+                    queueBlocks(i, torrentStats.getLastPieceBlockNumber() - 1);
+                }
+                queueBlock(i, torrentStats.getLastPieceBlockNumber() - 1, torrentStats.getLastBlockLength());
+            } else {
+                queueBlocks(i, torrentStats.getPieceBlockNumber());
             }
         }
     }
 
-    public void closeDataOutputStream(DataOutputStream dataOutputStream){
-        if(dataOutputStream != null){
-            try {
-                dataOutputStream.close();
-            }catch(Exception e){
-                System.out.println(e);
+    /* queue all blocks within one piece */
+    private void queueBlocks(int pieceIndex, int blockNumber) {
+        for (int j = 0; j < blockNumber; j++) {
+            queueBlock(pieceIndex, j, TorrentStats.BLOCK_LENGTH);
+        }
+    }
+
+    /* create an object of type Block and add to the queue */
+    private void queueBlock(int pieceIndex, int index, int blockLength) {
+        int offset = index * TorrentStats.BLOCK_LENGTH;
+        Block block = new Block(pieceIndex, offset, blockLength);
+        requestQueue.add(block);
+    }
+
+    /* check if remote peer chokes or unchokes */
+    private void updateConnectionState(Message message) {
+        if (message != null) {
+            switch (message.getType()) {
+                case MsgType.CHOKE:
+                    handleChoke();
+                    break;
+                case MsgType.UNCHOKE:
+                    handleUnchoke();
+                    break;
             }
         }
     }
 
-    public void closeDataInputStream(DataInputStream dataInputStream){
-        if(dataInputStream != null){
-            try {
-                dataInputStream.close();
-            }catch(Exception e){
-                System.out.println(e);
-            }
+    /* handle message of type Have */
+    private void handleHave(Message haveMsg) throws IOException, PeerCommunicationException {
+        printlnLog("Handling have message : " + haveMsg);
+        if (!verifyHave(haveMsg)) {
+            throw new PeerCommunicationException("Have message is not verified!");
         }
+        peer.markBitfieldDownloaded(haveMsg.getPieceIndex());
+        if(!torrentStats.isPieceCompleted(haveMsg.getPieceIndex())) {
+            peer.sendInterested();
+        }
+        printlnLog("Handled have message : " + haveMsg);
     }
 
+    /* verify message of Have type */
+    private boolean verifyHave(Message haveMsg) {
+        if (haveMsg.getPieceIndex() >= 0
+                && haveMsg.getPieceIndex() < torrentStats.getPieceNumber()) {
+            return true;
+        }
+        return false;
+    }
+
+    // TODO: do I need it?
+    private void handleCancel(Message cancelMsg) {
+        printlnLog("Input cancel messages are not supported");
+    }
+
+    // TODO: do I need it?
+    private void handleRequest(Message requestMsg) {
+        printlnLog("Input request messages are not supported");
+    }
+
+    /* handle Piece message */
+    private void handlePiece(Message pieceMsg) throws NoSuchAlgorithmException, IOException {
+        printlnLog("Handling piece message : " + pieceMsg);
+        unansweredQueue.remove(pieceMsg.getBlock());
+        torrentStats.addBlock(pieceMsg.getBlock());
+        // if piece completed - save it
+        if (torrentStats.isPieceCompleted(pieceMsg.getPieceIndex())) {
+            Piece piece = torrentStats.getPieceForSaving(pieceMsg.getPieceIndex());
+            if (verifyHash(piece)) {
+                savePiece(piece);
+                peer.sendMessage(MsgUtils.buildHave(piece.getIndex()));
+                printLog("Piece hash has been verified : " + piece);
+            } else {
+                reDownload(piece);
+                printLog("Piece hash does not equal hash from torrent meta file : " + piece);
+            }
+        }
+        printLog("Handled piece message : " + pieceMsg);
+    }
+
+    /* re-download the piece in case of failure or hash mismatch */
+    private void reDownload(Piece piece) {
+        torrentStats.markPieceNotCompleted(piece.getIndex());
+        int blockNumber = (piece.getIndex() == (torrentStats.getPieceNumber() - 1)) ?
+                torrentStats.getLastPieceBlockNumber() : torrentStats.getPieceBlockNumber();
+        queueBlocks(piece.getIndex(), blockNumber);
+    }
+
+    /* verify hash of received piece */
+    private boolean verifyHash(Piece piece) throws NoSuchAlgorithmException {
+        ByteBuffer expectedHash = torrentStats.getPieceHash(piece.getIndex());
+        byte[] actualHash = Utils.generateHash(piece.getData());
+        return Arrays.equals(expectedHash.array(), actualHash);
+    }
+
+    // TODO: save piece to file in particular position with piece (block) offset
+    private void savePiece(Piece piece) throws IOException {
+        printLog("Saving piece : " + piece);
+        int pieceDataOffset = piece.getIndex() * torrentStats.getPieceLength();
+        fileWriter.write(pieceDataOffset, piece.getData());
+    }
+
+    private void handleBitfield(Message bitfieldMsg) {
+        printlnLog("Handling bitfield message");
+        peer.setBitfield(bitfieldMsg.getPayload());
+        printLog("Handled bitfield message");
+    }
+
+    private void handleChoke() {
+        printlnLog("Handling choke message");
+        peer.setMeChoked(true);
+        // disregard all unanswered requests after choke and schedule to send it again
+        requestQueue.addAll(unansweredQueue);
+        unansweredQueue.clear();
+        printLog("Handled choke message");
+    }
+
+    private void handleUnchoke() {
+        printlnLog("Handling unchoke message");
+        peer.setMeChoked(false);
+        printLog("Handled unchoke message");
+    }
 }
