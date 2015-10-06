@@ -116,10 +116,7 @@ public class PeerCommunicator {
 
     }
 
-    /**
-     * Try to pipeline data requests in order so saturate active connections
-     * @return true if sent any message
-     */
+
     private boolean sendRequest() {
         printlnLog("Sending request : ");
         Block request = requestQueue.poll();
