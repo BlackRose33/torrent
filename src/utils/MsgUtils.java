@@ -163,6 +163,20 @@ public class MsgUtils {
         bitfield.put(torrentStats.getBitfield());
         return bitfield.array();
     }
+
+    /**
+     * Piece Message contains the piece as payload
+     * It has this format
+     * <index><begin><block>
+     */
+
+    public static byte[] buildPiece(Block block) {
+        ByteBuffer message = buildLengthAndId(8 + block.getLength(), MsgType.PIECE);
+        message.putInt(block.getPieceIndex());
+        message.putInt(block.getOffset());
+        message.put(block.getData());
+    }
+
     /* build length and id part of a message*/
     private static ByteBuffer buildLengthAndId(int payloadLength, byte id) {
         // payload + one byte for id
@@ -179,12 +193,21 @@ public class MsgUtils {
     }
 
     public static void verifyHandShakeResponse(byte[] handshakeResponse, byte[] handshake, String peerIdExpected) throws Exception{
+        // Fail if both handshakes are completely the same
         if (!Arrays.equals(Arrays.copyOf(handshake, 48), Arrays.copyOf(handshakeResponse, 48))) {
-            throw new PeerCommunicationException("Handshake response was not verified");
+            throw new PeerCommunicationException("Handshakes from both ends are completely the same");
         }
+
+        // Check format of the response handshake (verify is a valid handshake and peer is not trolling us)
+        // First 48 bytes should be the same in both handshakes
+        if (!Arrays.equals(Arrays.copyOfRange(hanshake, 0, 48), Arrays.copyOfRange(handshakeResponse, 0, 48))) {
+            throw new PeerCommunicationException("Response handshake has a non-valid format");
+        }
+
+        // Last 20 bytes should be the remote peer's ID, verify it
         String peerIdActual = new String(Arrays.copyOfRange(handshakeResponse, 48, 68));
         if(!peerIdActual.equals(peerIdExpected)){
-            throw new PeerCommunicationException("Peer names do not match in a handshake response");
+            throw new PeerCommunicationException("Expected PeerID does not match the one received.");
         }
     }
 
