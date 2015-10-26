@@ -3,7 +3,7 @@ package utils;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-/**
+/**group 16
  * Created by nadiachepurko on 10/3/15.
  */
 public class Utils {
@@ -16,6 +16,10 @@ public class Utils {
 
     public static void printLog(String logMessage) {
         System.out.println(logMessage);
+    }
+    
+    public static void printError(String logMessage) {
+        System.err.println(logMessage);
     }
 
     public static byte[] generateHash(byte[] data) throws NoSuchAlgorithmException {

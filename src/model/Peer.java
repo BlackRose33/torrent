@@ -1,4 +1,6 @@
 package model;
+
+import exceptions.PeerCommunicationException;
 import utils.MsgUtils;
 import utils.Utils;
 
@@ -11,10 +13,12 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 
-/**
+/** group 16
  * Created by nadiachepurko on 10/3/15.
  */
 public class Peer {
+
+    private static final int KEEP_ALIVE_INTERVAL_MILLISECONDS = 120000; //2 minutes
     private String id;
     private String ip;
     private int port;
@@ -31,20 +35,24 @@ public class Peer {
     private Socket socket;
     private DataOutputStream outDataStream;
     private DataInputStream inDataStream;
+    //last time in ms when any message has been received from peer
+    private long lastKeepAliveTime;
 
     public Peer(String peer_id, String ip, int port) {
         this.id = peer_id;
         this.ip = ip;
         this.port = port;
+        lastKeepAliveTime = System.currentTimeMillis();
     }
 
-    public Message receiveMessage() throws IOException {
+    public Message receiveMessage() throws IOException, PeerCommunicationException {
         try {
             Utils.printLog("Start receiving message");
             byte[] bigendianLength = new byte[4];
             inDataStream.readFully(bigendianLength);
             int msgLength = MsgUtils.convertToInt(bigendianLength);
             Utils.printLog("=============> msgLength ==> " + msgLength);
+            lastKeepAliveTime = System.currentTimeMillis();
             if (msgLength > 0) {
                 byte[] msgBody = new byte[msgLength];
                 inDataStream.readFully(msgBody);
@@ -55,8 +63,14 @@ public class Peer {
             }
         } catch (SocketTimeoutException ex) {
             Utils.printLog("####### SocketTimeoutException ######");
+            throw new PeerCommunicationException("Connection with peer is not alive!");
         }
         return null;
+    }
+
+    public boolean isConnectionAlive() {
+        long diffInMillis = System.currentTimeMillis() - lastKeepAliveTime;
+        return diffInMillis < KEEP_ALIVE_INTERVAL_MILLISECONDS;
     }
 
     public void sendMessage(byte[] msgBytes) throws IOException {
@@ -72,7 +86,7 @@ public class Peer {
 
     public void openConnection() throws IOException {
         socket = new Socket(this.getIp(), this.getPort());
-        socket.setSoTimeout(2000);
+        socket.setSoTimeout(KEEP_ALIVE_INTERVAL_MILLISECONDS);
         outDataStream = new DataOutputStream(socket.getOutputStream());
         inDataStream = new DataInputStream(socket.getInputStream());
     }
@@ -99,6 +113,7 @@ public class Peer {
 
     /* perform a handshake with this remote peer */
     public void makeHandshake(String clientPeerId, byte[] infoHash) throws Exception {
+      try{
         byte[] handshake = MsgUtils.buildHandshake(clientPeerId, infoHash);
         this.sendMessage(handshake);
 
@@ -108,6 +123,10 @@ public class Peer {
         Utils.printlnLog("Handshake response: " + new String(handshakeResponse));
 
         MsgUtils.verifyHandShakeResponse(handshakeResponse, handshake, this.getId());
+      } catch (SocketTimeoutException ex) {
+            Utils.printLog("####### SocketTimeoutException ######");
+            throw new PeerCommunicationException("Connection with peer is not alive!");
+      }
     }
 
     /* send interested message*/

@@ -1,7 +1,7 @@
 package model;
 
 import java.util.Arrays;
-/**
+/** group 16
  * Created by nadiachepurko on 10/2/15.
  */
 public class Block implements Comparable<Block>{

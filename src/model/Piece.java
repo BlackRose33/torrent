@@ -5,7 +5,7 @@ import java.util.BitSet;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
+/** group 16
  * Created by nadiachepurko on 10/3/15.
  */
 public class Piece {

@@ -4,7 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-/**
+/** group 16
  * Created by nadiachepurko on 10/3/15.
  */
 public class RandomAccessFileWriter {

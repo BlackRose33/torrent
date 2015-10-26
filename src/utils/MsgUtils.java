@@ -6,51 +6,16 @@ import model.Message;
 import model.MsgType;
 import model.TorrentStats;
 
-import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.BitSet;
 
-import static utils.Utils.printLog;
-import static utils.Utils.printlnLog;
-
-/**
+/** group 16
  * Created by nadiachepurko on 10/3/15.
  */
 public class MsgUtils {
 
     private static final int MSG_LENGTH_BYTE_LENGTH = 4;
     private static final int MSG_ID_BYTE_LENGTH = 1;
-
-    public static void main(String[] args) throws Exception, MalformedURLException {
-        byte first = (byte) 0b00101000;
-        byte second = (byte) 0b11111111;
-        byte[] bytes = new byte[]{first, second};
-        BitSet bitSet = BitSet.valueOf(bytes);
-
-        byte[] bytes2 = bitSet.toByteArray();
-
-        printlnLog("Input bitset  : " + bitSet);
-        printlnLog("Input bitset cardinality  : " + bitSet.isEmpty());
-        printlnLog("Input bitset size  : " + bitSet.size());
-        printlnLog("Input bitset length  : " + bitSet.size());
-        printlnLog("Input   : " + bytes.toString());
-        printlnLog("Output  : " + bytes2.toString());
-        printlnLog("Equals  : " + Arrays.equals(bytes, bytes2));
-
-        String helloOrig = new String("hello!");
-        byte[] bytesData = helloOrig.getBytes();
-        String helloRestored = new String(bytesData);
-
-        printLog("helloOrig         : " + helloOrig);
-        printLog("helloRestored     : " + helloRestored);
-        printLog("helloOrig equals helloRestored  : " + helloOrig.equals(helloRestored));
-
-        ByteBuffer buffer = ByteBuffer.wrap(bytesData);
-        String helloRestoredFromBuffer = new String(buffer.array());
-        printLog("helloRestoredFromBuffer  : " + helloRestoredFromBuffer);
-
-    }
 
     /**
      * @param msgBody bytes of message without first big endian length
@@ -169,14 +134,14 @@ public class MsgUtils {
      * It has this format
      * <index><begin><block>
      */
-
+/*
     public static byte[] buildPiece(Block block) {
         ByteBuffer message = buildLengthAndId(8 + block.getLength(), MsgType.PIECE);
         message.putInt(block.getPieceIndex());
         message.putInt(block.getOffset());
         message.put(block.getData());
     }
-
+*/
     /* build length and id part of a message*/
     private static ByteBuffer buildLengthAndId(int payloadLength, byte id) {
         // payload + one byte for id
@@ -197,13 +162,13 @@ public class MsgUtils {
         if (!Arrays.equals(Arrays.copyOf(handshake, 48), Arrays.copyOf(handshakeResponse, 48))) {
             throw new PeerCommunicationException("Handshakes from both ends are completely the same");
         }
-
+/*
         // Check format of the response handshake (verify is a valid handshake and peer is not trolling us)
         // First 48 bytes should be the same in both handshakes
-        if (!Arrays.equals(Arrays.copyOfRange(hanshake, 0, 48), Arrays.copyOfRange(handshakeResponse, 0, 48))) {
+        if (!Arrays.equals(Arrays.copyOfRange(handshake, 0, 48), Arrays.copyOfRange(handshakeResponse, 0, 48))) {
             throw new PeerCommunicationException("Response handshake has a non-valid format");
         }
-
+*/
         // Last 20 bytes should be the remote peer's ID, verify it
         String peerIdActual = new String(Arrays.copyOfRange(handshakeResponse, 48, 68));
         if(!peerIdActual.equals(peerIdExpected)){

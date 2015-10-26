@@ -1,6 +1,6 @@
 package model;
 
-/**
+/** group 16
  * Created by nadiachepurko on 10/3/15.
  */
 public interface MsgType {

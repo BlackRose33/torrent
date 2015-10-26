@@ -19,6 +19,9 @@ import java.util.Random;
 
 import static utils.Utils.printlnLog;
 
+/** group 16
+ */
+
 public class RUBTClient {
 
 
@@ -42,7 +45,7 @@ public class RUBTClient {
 	private static String event = "started";
 
 	public static void main(String[] args) throws BencodingException, IOException, TrackerCommunicatorException, Exception {
-
+   try{
 		if(args.length != 2){
 			printlnLog("Please, provide 2 arguments: torrent file and the file to save the data to");
 			return;
@@ -51,87 +54,90 @@ public class RUBTClient {
 		String torrentFile = args[0];
 		String toFile = args[1];
 
-		byte[] data = null;
-
-		try {
-			Path path = Paths.get(torrentFile);
-			data = Files.readAllBytes(path);
-		} catch (Exception e) {
-			System.out.println(e);
-			return;
-		}
-
+		byte[] data = readTorrentFile(torrentFile);
 		File outFile = getFile(toFile);
-		if (outFile == null) {
-			Utils.printLog("File path is invalid : " + toFile);
-			return;
-		}
 
 		// Create torrent file parser object to get info from it
 		TorrentInfo torrent = new TorrentInfo(data);
-		byte[] info_hash = torrent.info_hash.array();
+    // Generate peerID
+    peer_id = generateClientID();
+  
+    // Set the amount of bytes left to download (report this to the tracker)
+    amount_left = Integer.toString(torrent.file_length);
 
 		// Convert the SHA1 hash to HEX  (need this to send it to the tracker)
-		String hash_hex = "";
+	    String hash_hex = toHex(torrent.info_hash.array());
+      printTorrentInfo(torrent, hash_hex);
 
-		for (int i = 0; i < info_hash.length; i++) {
-			hash_hex += "%" + String.format("%02X",info_hash[i]);
-		}
+      printlnLog("----------- Operations with tracker ----------");
 
-		printTorrentInfo(torrent, hash_hex);
+      // HashMap to store GET parameters as key-value pairs
+      HashMap<String, String> parameters = buildTrackerParameters(hash_hex);
+   
+      // Create new TrackerCommunicator
+      TrackerCommunicator tracker = new TrackerCommunicator(torrent.announce_url.toString(), parameters);
+   
+      printlnLog("Starting download - Notify tracker and retrieve peers dictionary");
+      Map<ByteBuffer,Object> peers_dictionary = (Map<ByteBuffer,Object>) Bencoder2.decode(tracker.announceStarted(amount_left));
+   
+      List<Peer> peers = tracker.getListOfPeers(peers_dictionary);
+   
+      // temporary use first peer from the list of chosen peers
+      Peer peer = peers.get(0);
+      printlnLog("First peer : " + peer);
+    
+      TorrentStats torrentStats = new TorrentStats(torrent, peer_id, outFile);
+      PeerCommunicator pc = new PeerCommunicator(peer, torrentStats);
+      pc.getFileFromPeer();
+      // Notify tracker that we have completed the download
+      // Once at this point, the file download has completed without issues, so we can notify 0 bytes left
+      tracker.announceCompleted();
+   } catch (Exception e) {
+     Utils.printError("Error occurs : " + e.getMessage());
+   }
+  }
 
 
-		printlnLog("----------- Operations with tracker ----------");
+	static byte[] readTorrentFile(String torrentFile) throws IOException {
+    try {
+      Path path = Paths.get(torrentFile);
+      return Files.readAllBytes(path);
+    } catch (Exception e) {
+      throw new RuntimeException("Can't read file torrent file : " + torrentFile);
+    }
+  }
 
-		// Generate peerID
-		peer_id = generateClientID();
+  private static HashMap<String, String> buildTrackerParameters(String hash_hex) {
+    HashMap<String, String> parameters = new HashMap<String, String>();
 
-		// Set the amount of bytes left to download (report this to the tracker)
-		amount_left = Integer.toString(torrent.file_length);
+    // Parameters values
+    String[] values = new String[]{
+      hash_hex,                            // SHA1 Hash (in HEX and URL encoded)
+      peer_id,                            // Peer ID of this client
+    // PHASE 2: Change port to use after a port verification has been done
+      LOWEST_PORT_TO_USE,                  // For now, port is irrelevant since we're only downloading
+      amount_uploaded,
+      amount_downloaded,
+      amount_left,
+      event
+    };
+    // Add key-value pairs to parameters hashmap
+    for (int i = 0; i < values.length; i++)
+      parameters.put(TrackerCommunicator.PARAMETER_KEYS[i], values[i]);
+    return parameters;
+  }
+  
+  private static String toHex(byte[] info_hash) {
+    String hash_hex = "";
+  
+    for (int i = 0; i < info_hash.length; i++) {
+      hash_hex += "%" + String.format("%02X",info_hash[i]);
+    }
+    return hash_hex;
+  }
 
-		// HashMap to store GET parameters as key-value pairs
-		HashMap<String, String> parameters = new HashMap<String, String>();
-
-		// Parameters values
-		String[] values = new String[]{
-				hash_hex,                            // SHA1 Hash (in HEX and URL encoded)
-				peer_id,                            // Peer ID of this client
-				// PHASE 2: Change port to use after a port verification has been done
-				LOWEST_PORT_TO_USE,                  // For now, port is irrelevant since we're only downloading
-				amount_uploaded,
-				amount_downloaded,
-				amount_left,
-				event
-		};
-
-		// Add key-value pairs to parameters hashmap
-		for (int i = 0; i < values.length; i++)
-			parameters.put(TrackerCommunicator.PARAMETER_KEYS[i], values[i]);
-
-		// Create new TrackerCommunicator
-		TrackerCommunicator tracker = new TrackerCommunicator(torrent.announce_url.toString(), parameters);
-
-		printlnLog("Starting download - Notify tracker and retrieve peers dictionary");
-		Map<ByteBuffer,Object> peers_dictionary = (Map<ByteBuffer,Object>) Bencoder2.decode(tracker.announceStarted(amount_left));
-
-		List<Peer> peers = tracker.getListOfPeers(peers_dictionary);
-
-		// temporary use first peer from the list of chosen peers
-		Peer peer = peers.get(0);
-		printlnLog("First peer : " + peer);
-
-		TorrentStats torrentStats = new TorrentStats(torrent, peer_id, outFile);
-		PeerCommunicator pc = new PeerCommunicator(peer, torrentStats);
-		pc.getFileFromPeer(peer);
-
-		// Notify tracker that we have completed the download
-		// Once at this point, the file download has completed without issues, so we can notify 0 bytes left
-		tracker.announceCompleted();
-	}
-
-	/* create output file if possible */
-	public static File getFile(String toFile) {
-		try {
+    /* create output file if possible */
+	public static File getFile(String toFile) throws IOException{
 			Path outPath = Paths.get(toFile);
 			boolean exists = Files.exists(outPath);
 			if (exists) {
@@ -140,10 +146,6 @@ public class RUBTClient {
 			}
 			Files.createFile(outPath);
 			return outPath.toFile();
-		} catch (Exception e) {
-			Utils.printLog("Can not get file, error message : " + e.getMessage());
-		}
-		return null;
 	}
 
 	/* helper methods for testing */

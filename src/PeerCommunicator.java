@@ -15,7 +15,7 @@ import static utils.Utils.printlnLog;
 
 
 
-/**
+/**group 16
  * Created by nadiachepurko on 9/26/15.
  */
 
@@ -38,7 +38,7 @@ public class PeerCommunicator {
         this.peer = peer;
     }
 
-    public void getFileFromPeer(Peer peer) throws Exception {
+    public void getFileFromPeer() throws Exception {
 
         if (peer == null) {
             throw new PeerCommunicationException("Peer is null");
@@ -71,8 +71,9 @@ public class PeerCommunicator {
                 handleBitfield(bitfield);
 
                 while (!torrentStats.isFileDownloaded()) {
+                  if(peer.isConnectionAlive()){  
                     Message message = peer.receiveMessage();
-                    Utils.printLog("Received message : " + message);
+                    //Utils.printLog("Received message : " + message);
                     updateConnectionState(message); //handle choke or unchoke messages
 
                     if (peer.amIDownloadingFromPeer()) {
@@ -100,7 +101,9 @@ public class PeerCommunicator {
                     } else {
                         Thread.sleep(THREAD_SLEEP_INTERVAL);
                     }
-
+                  } else {
+                    throw new PeerCommunicationException("Connection with peer is not alive!");
+                  }
                 }
 
             } else {
@@ -116,7 +119,11 @@ public class PeerCommunicator {
 
     }
 
-
+      
+/**   
+ * Try to send data requests   
+ * @return true if sent any message   
+ */  
     private boolean sendRequest() {
         printlnLog("Sending request : ");
         Block request = requestQueue.poll();
@@ -189,7 +196,7 @@ public class PeerCommunicator {
         if(!torrentStats.isPieceCompleted(haveMsg.getPieceIndex())) {
             peer.sendInterested();
         }
-        printlnLog("Handled have message : " + haveMsg);
+        //printlnLog("Handled have message : " + haveMsg);
     }
 
     /* verify message of Have type */
@@ -228,7 +235,7 @@ public class PeerCommunicator {
                 printLog("Piece hash does not equal hash from torrent meta file : " + piece);
             }
         }
-        printLog("Handled piece message : " + pieceMsg);
+        //printLog("Handled piece message : " + pieceMsg);
     }
 
     /* re-download the piece in case of failure or hash mismatch */
@@ -246,9 +253,9 @@ public class PeerCommunicator {
         return Arrays.equals(expectedHash.array(), actualHash);
     }
 
-    // TODO: save piece to file in particular position with piece (block) offset
+    // save piece to file in particular position with piece (block) offset
     private void savePiece(Piece piece) throws IOException {
-        printLog("Saving piece : " + piece);
+        //printLog("Saving piece : " + piece);
         int pieceDataOffset = piece.getIndex() * torrentStats.getPieceLength();
         fileWriter.write(pieceDataOffset, piece.getData());
     }

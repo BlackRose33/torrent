@@ -1,6 +1,5 @@
 import exceptions.TrackerCommunicatorException;
 import model.Peer;
-import utils.Bencoder2;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -8,11 +7,16 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.SocketException;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
-import static utils.Utils.printlnLog;
+/**group 16
+ */
 
 public class TrackerCommunicator {
 
@@ -56,7 +60,7 @@ public class TrackerCommunicator {
 	'failure reason' optional, 'interval', 'complete' optional, 'incomplete' optional, 'peers' (: peer id, ip, port)
 	*/
 	public byte[] get() throws Exception {
-
+   try{
 		// Build the url
 		String buffer = this.baseURL + "?";
 
@@ -88,6 +92,9 @@ public class TrackerCommunicator {
 		byte[] response = getByteArray(connection);
 
 		return response;
+   } catch(SocketException e) {
+    throw new TrackerCommunicatorException("Tracker connection error => " + e.getMessage());
+   }
 	}
 
     // Get list of peers from a dictionary response from the tracker
