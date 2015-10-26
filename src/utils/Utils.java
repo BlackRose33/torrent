@@ -27,4 +27,14 @@ public class Utils {
         digest.update(data);
         return digest.digest();
     }
+
+    public static String toHex(byte[] info_hash) {
+        String hash_hex = "";
+      
+        for (int i = 0; i < info_hash.length; i++) {
+          hash_hex += "%" + String.format("%02X",info_hash[i]);
+        }
+
+        return hash_hex;
+    }
 }
