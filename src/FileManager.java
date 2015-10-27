@@ -17,17 +17,19 @@ public class FileManager {
 
 	private Map<String,String> file_hash_map;
 
+	public FileManager() {
+		this.file_list = FileManager.DEFAULT_FILES_LIST;
+		this.file_hash_pattern = FileManager.DEFAULT_FILE_HASH_PATTERN;
+		init();
+	}
+
 	public FileManager(String list_of_supported_files, String file_hash_pattern) {
-		if (list_of_supported_files == "" || file_hash_pattern == "") {
-			this.file_list = FileManager.DEFAULT_FILES_LIST;
-			this.file_hash_pattern = FileManager.DEFAULT_FILE_HASH_PATTERN;
-		}
+		this.file_list = list_of_supported_files;
+		this.file_hash_pattern = file_hash_pattern;
+		init();
+	}
 
-		else {
-			this.file_list = list_of_supported_files;
-			this.file_hash_pattern = file_hash_pattern;
-		}
-
+	private void init() {
 		// Open the file to use and pattern
 		try {
 			this.file = new RandomAccessFile(this.file_list, "r");
@@ -97,7 +99,7 @@ public class FileManager {
 	 * @return boolean   True if file can be uploaded, else false
 	 */
 
-	public boolean isFileReadyToBeShared(String file_hash) {
+	public boolean isFileReadyToBeShared(String file_hash) throws IOException {
 		boolean result = true;
 
 		// Find file in the mapping
@@ -116,7 +118,7 @@ public class FileManager {
 		return result;
 	}
 
-	public boolean isFileReadyToBeShared(byte[] file_hash) {
+	public boolean isFileReadyToBeShared(byte[] file_hash) throws IOException {
 		// Encode file_hash in Hex
 		return isFileReadyToBeShared(Utils.toHex(file_hash));
 	}
@@ -159,7 +161,7 @@ public class FileManager {
 	// For simple testing - To formalize&remove
 
 	public static void main(String[] args) throws  IOException {
-		FileManager fm = new FileManager("", "");
+		FileManager fm = new FileManager();
 
 		fm.addMapping("1256", "list.txt");
 		int count = 50;
