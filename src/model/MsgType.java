@@ -25,6 +25,43 @@ public enum MsgType {
 	public byte id()       { return id; }
 	public int  length()   { return length; }
 
+	public static MsgType getID(byte id) {
+		MsgType msgtype;
+		switch(id) {
+			case 0:
+				msgtype = CHOKE;
+				break;
+			case 1:
+				msgtype = UNCHOKE;
+				break;
+			case 2:
+				msgtype = INTERESTED;
+				break;
+			case 3:
+				msgtype = UNINTERESTED;
+				break;
+			case 4:
+				msgtype = HAVE;
+				break;
+			case 5:
+				msgtype = BITFIELD;
+				break;
+			case 6:
+				msgtype = REQUEST;
+				break;
+			case 7:
+				msgtype = PIECE;
+				break;
+			case 8:
+				msgtype = CANCEL;
+				break;
+			default:
+				msgtype = CHOKE;
+		}
+
+		return msgtype;
+	}
+
 	public static void main(String[] args) {
 		MsgType msgtype = MsgType.PIECE;
 

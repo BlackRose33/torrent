@@ -23,29 +23,29 @@ public class MsgUtils {
      * @param msgBody bytes of message without first big endian length
      * @return Message
      */
-    /*public static Message parseMessage(ByteBuffer msgBody) {
+    public static Message parseMessage(ByteBuffer msgBody) {
         if (msgBody.hasRemaining()) {
             byte msgType = msgBody.get();
             ByteBuffer payload;
 
-            switch (msgType) {
-                case MsgType.HAVE:
+            switch (MsgType.getID(msgType)) {
+                case HAVE:
                     payload = ByteBuffer.wrap(Arrays.copyOfRange(msgBody.array(), msgBody.position(), msgBody.capacity()));
                     int pieceIndex = payload.getInt();
                     return new Message(msgType, pieceIndex);
-                case MsgType.REQUEST:
-                case MsgType.PIECE:
-                case MsgType.CANCEL:
+                case REQUEST:
+                case PIECE:
+                case CANCEL:
                     payload = ByteBuffer.wrap(Arrays.copyOfRange(msgBody.array(), msgBody.position(), msgBody.capacity()));
                     Block block = parseBlock(msgType, payload);
                     return new Message(msgType, block);
-                case MsgType.BITFIELD:
+                case BITFIELD:
                     payload = ByteBuffer.wrap(Arrays.copyOfRange(msgBody.array(), msgBody.position(), msgBody.capacity()));
                     return new Message(msgType, payload);
-                case MsgType.UNCHOKE:
-                case MsgType.CHOKE:
-                case MsgType.INTERESTED:
-                case MsgType.NOT_INTERESTED:
+                case UNCHOKE:
+                case CHOKE:
+                case INTERESTED:
+                case UNINTERESTED:
                     return new Message(msgType);
                 default:
                     return null;
@@ -54,25 +54,25 @@ public class MsgUtils {
         return null;
     }
 
-    public static Block parseBlock(int msgType, ByteBuffer msgPayload) {
+    public static Block parseBlock(byte msgType, ByteBuffer msgPayload) {
         int pieceIndex = msgPayload.getInt();
         // second big endian integer
         int offset = msgPayload.getInt();
 
-        switch (msgType) {
-            case MsgType.PIECE:
+        switch (MsgType.getID(msgType)) {
+            case PIECE:
                 // starts after two big endian integers
                 byte[] data = Arrays.copyOfRange(msgPayload.array(), msgPayload.position(), msgPayload.capacity());
                 return new Block(pieceIndex, offset, data);
-            case MsgType.REQUEST:
-            case MsgType.CANCEL:
+            case REQUEST:
+            case CANCEL:
                 // starts after two big endian integers
                 int length = msgPayload.getInt();
                 return new Block(pieceIndex, offset, length);
             default:
                 return null;
         }
-    }*/
+    }
 
     public static int convertToInt(byte[] bytes) {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
@@ -142,6 +142,14 @@ public class MsgUtils {
         return request.array();
     }
 
+    public static byte[] buildRequest(int index, int offset, int length) {
+        ByteBuffer request = build(MsgType.REQUEST, 0);
+        request.putInt(index);
+        request.putInt(offset);
+        request.putInt(length);
+        return request.array();
+    }
+
     /**
      * Piece Message contains the piece as payload
      * It has this format
@@ -156,6 +164,13 @@ public class MsgUtils {
         return message.array();
     }
 
+    public static byte[] buildPiece(int length, int index, int offset, byte[] data) {
+        ByteBuffer message = build(MsgType.PIECE, length);
+        message.putInt(index);
+        message.putInt(offset);
+        message.put(data);
+        return message.array();
+    }
 
     public static int toBitSetIndex(int index, int bitSetLength) {
         return Math.abs(bitSetLength - index - 1);
@@ -183,13 +198,18 @@ public class MsgUtils {
 
 
     public static void main(String[] args) {
-        ByteBuffer message = ByteBuffer.wrap(buildHave(10));
+        ByteBuffer message = ByteBuffer.wrap(buildPiece(5, 10, 20, "abcde".getBytes()));
 
         int length = message.getInt();
         byte id    = message.get();
-        int  index = message.getInt();
+        int  piece = message.getInt();
+        int  offset = message.getInt();
+        byte[] data_bytes = new byte[5];
+        message.get(data_bytes);
+        String data = new String(data_bytes);
 
-        System.out.println("Length: " + length + " - ID: " + id + " - Index: " + index);
+        System.out.println("Length: " + length + " - ID: " + id + " - Piece: " + piece);
+        System.out.println("Offset: " + offset + " - Data: " + data);
     }
 
 }
