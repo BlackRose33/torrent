@@ -17,11 +17,13 @@ public class MsgUtils {
     private static final int MSG_LENGTH_BYTE_LENGTH = 4;
     private static final int MSG_ID_BYTE_LENGTH = 1;
 
+    public static final byte[] HANDSHAKE_HEAD = new byte[] {(byte) 19,'B','i','t','T','o','r','r','e','n','t',' ','p','r','o','t','o','c','o','l'};
+
     /**
      * @param msgBody bytes of message without first big endian length
      * @return Message
      */
-    public static Message parseMessage(ByteBuffer msgBody) {
+    /*public static Message parseMessage(ByteBuffer msgBody) {
         if (msgBody.hasRemaining()) {
             byte msgType = msgBody.get();
             ByteBuffer payload;
@@ -70,7 +72,7 @@ public class MsgUtils {
             default:
                 return null;
         }
-    }
+    }*/
 
     public static int convertToInt(byte[] bytes) {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
@@ -88,8 +90,38 @@ public class MsgUtils {
         return handshake;
     }
 
-    public static byte[] buildInterested() {
-        return buildLengthAndId(0, MsgType.INTERESTED).array();
+    public static byte[] buildKeepAlive() {
+        ByteBuffer request = ByteBuffer.allocate(4);
+        request.putInt(0);
+        return request.array();
+    }
+
+    public static ByteBuffer build(MsgType msgType, int variableLength) {
+        // Build head of packet
+        // 4 bytes for biп endian msg length integer + 1 byte id + payload length + variable
+        int totalLength = 1 + msgType.length() + variableLength;
+        ByteBuffer message = ByteBuffer.allocate(MSG_LENGTH_BYTE_LENGTH + totalLength);
+        message.putInt(totalLength);
+        message.put(msgType.id());
+
+        return message;
+    }
+
+    public static byte[] buildChoke() { return build(MsgType.CHOKE, 0).array(); }
+    public static byte[] buildUnChoke() { return build(MsgType.UNCHOKE, 0).array(); }
+    public static byte[] buildInterested() { return build(MsgType.INTERESTED, 0).array(); }
+    public static byte[] buildUninterested() { return build(MsgType.UNINTERESTED, 0).array(); }
+
+    public static byte[] buildHave(int pieceIndex) {
+        ByteBuffer have = build(MsgType.HAVE, 0);
+        have.putInt(pieceIndex);
+        return have.array();
+    }
+
+    public static byte[] buildBitfield(byte[] bitfield) {
+        ByteBuffer message = build(MsgType.BITFIELD, bitfield.length/8);
+        message.put(bitfield);
+        return message.array();
     }
 
     /*
@@ -103,30 +135,11 @@ public class MsgUtils {
         ---------------------------------------------
     * */
     public static byte[] buildRequest(Block block) {
-        ByteBuffer request = buildLengthAndId(12, MsgType.REQUEST);
+        ByteBuffer request = build(MsgType.REQUEST, 0);
         request.putInt(block.getPieceIndex());
         request.putInt(block.getOffset());
         request.putInt(block.getLength());
         return request.array();
-    }
-
-    public static byte[] buildKeepAlive() {
-        ByteBuffer request = ByteBuffer.allocate(4);
-        request.putInt(0);
-        return request.array();
-    }
-
-    public static byte[] buildHave(int pieceIndex) {
-        ByteBuffer have = buildLengthAndId(4, MsgType.HAVE);
-        have.putInt(pieceIndex);
-        return have.array();
-    }
-
-    // TODO: send only needed amount of bytes but not all from BitSet
-    public static byte[] buildBitfield(TorrentStats torrentStats) {
-        ByteBuffer bitfield = buildLengthAndId(torrentStats.getPieceNumber(), MsgType.BITFIELD);
-        bitfield.put(torrentStats.getBitfield());
-        return bitfield.array();
     }
 
     /**
@@ -134,24 +147,15 @@ public class MsgUtils {
      * It has this format
      * <index><begin><block>
      */
-/*
+
     public static byte[] buildPiece(Block block) {
-        ByteBuffer message = buildLengthAndId(8 + block.getLength(), MsgType.PIECE);
+        ByteBuffer message = build(MsgType.PIECE, block.getLength());
         message.putInt(block.getPieceIndex());
         message.putInt(block.getOffset());
         message.put(block.getData());
+        return message.array();
     }
-*/
-    /* build length and id part of a message*/
-    private static ByteBuffer buildLengthAndId(int payloadLength, byte id) {
-        // payload + one byte for id
-        int msgLength = payloadLength + MSG_ID_BYTE_LENGTH;
-        // 4 bytes for biп endian msg length integer + itself msg length
-        ByteBuffer bitfield = ByteBuffer.allocate(msgLength + MSG_LENGTH_BYTE_LENGTH);
-        bitfield.putInt(msgLength);
-        bitfield.put(id);
-        return bitfield;
-    }
+
 
     public static int toBitSetIndex(int index, int bitSetLength) {
         return Math.abs(bitSetLength - index - 1);
@@ -174,6 +178,18 @@ public class MsgUtils {
         if(!peerIdActual.equals(peerIdExpected)){
             throw new PeerCommunicationException("Expected PeerID does not match the one received.");
         }
+    }
+
+
+
+    public static void main(String[] args) {
+        ByteBuffer message = ByteBuffer.wrap(buildHave(10));
+
+        int length = message.getInt();
+        byte id    = message.get();
+        int  index = message.getInt();
+
+        System.out.println("Length: " + length + " - ID: " + id + " - Index: " + index);
     }
 
 }
