@@ -3,8 +3,8 @@ package model;
 
 public enum MsgType {
 
-	// MessageType (MessageID - first bit, Payload length - bytes)
-	// If Payload length is -x, means it's of variable length (x + ?)
+	// MessageType (MessageID - first bit, length - bytes)
+	// If length is -x, means it's of variable length (x + ?)
 	CHOKE         (0, 0),
 	UNCHOKE       (1, 0),
 	INTERESTED    (2, 0),
@@ -16,19 +16,19 @@ public enum MsgType {
 	CANCEL        (8, 13);
 
 	private final byte id;
-	private final int payloadLength;
+	private final int length;
 
-	MsgType(int id, int payloadLength) {
+	MsgType(int id, int length) {
 		this.id = (byte) id;
-		this.payloadLength = payloadLength;
+		this.length = length;
 	}
 
-	private byte id()              { return id; }
-	private int  payloadLength()   { return payloadLength; }
+	private byte id()       { return id; }
+	private int  length()   { return length; }
 
 	public static void main(String[] args) {
 		MsgType msgtype = MsgType.PIECE;
 
-		System.out.println(msgtype.id() + " - " + msgtype.payloadLength());
+		System.out.println(msgtype.id() + " - " + msgtype.length());
 	}
 }
