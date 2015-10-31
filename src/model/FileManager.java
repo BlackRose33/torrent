@@ -1,3 +1,4 @@
+package model;
 import java.util.*;
 import java.io.*;
 import java.net.*;
@@ -115,6 +116,7 @@ public class FileManager {
 			result = false;
 		}
 
+		System.out.println("isFileReadyToBeShared? " + result);
 		return result;
 	}
 
