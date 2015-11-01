@@ -61,6 +61,9 @@ public class FileSaver {
 			downloaded.remove(i);
 			savedPieces++;
 		}
+
+		// Close the file
+		outFile.close();
 	}
 
     // save piece to file in particular position with piece (block) offset
