@@ -4,16 +4,23 @@ import utils.MsgUtils;
 import java.util.BitSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.nio.*;
+import utils.*;
 
-/** group 16
- * Created by nadiachepurko on 10/3/15.
- */
+
 public class Piece {
 
-    private int index;
-    private int blockNumber; /* number of blocks per piece */
+    public int index;
+    public int blockNumber;       /* number of blocks per piece */
     private Set<Block> blocks;
     private BitSet blocksCompleted;
+    public ByteBuffer expectedHash;
+
+    public byte[] data;
+
+    // If this is the last piece, then it has different length
+    public boolean lastPiece = false;
+    public int lastPieceLength;
 
     public Piece(int index, int blockNumber) {
         this.index = index;
@@ -22,8 +29,18 @@ public class Piece {
         this.blocksCompleted = new BitSet(blockNumber);
     }
 
+    public Piece(int index, byte[] data) {
+        this.index = index;
+        this.data = data;
+    }
+
     public int getIndex() {
         return index;
+    }
+
+    public void isLastPiece(int length) { 
+        this.lastPiece = true;
+        this.lastPieceLength = length;
     }
 
     public byte[] getData() {
@@ -44,7 +61,7 @@ public class Piece {
 
     public void addBlock(Block block) {
         blocks.add(block);
-        blocksCompleted.set(MsgUtils.toBitSetIndex(block.getIndex(), blocksCompleted.size()));
+        blocksCompleted.set(Utils.toBitSetIndex(block.getIndex(), blocksCompleted));
     }
 
     public boolean isCompleted() {

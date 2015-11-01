@@ -6,12 +6,14 @@ import java.util.Arrays;
  */
 public class Block implements Comparable<Block>{
 
+    public static final int BLOCK_LENGTH = 6;//16384;
+
     // Index represents the index of the block within the piece
     // So, it's calculated using offset / block's length
     public Integer index;
 
-    private int pieceIndex;
-    private int offset;
+    public int pieceIndex;
+    public int offset;
     
     private int length;
     private byte[] data = null;
@@ -27,7 +29,7 @@ public class Block implements Comparable<Block>{
         this.pieceIndex = pieceIndex;
         this.offset = offset;
         this.length = length;
-        this.index = offset / TorrentStats.BLOCK_LENGTH;
+        this.index = offset / BLOCK_LENGTH;
     }
 
     public Block(int pieceIndex, int offset, byte[] data) {

@@ -46,7 +46,7 @@ public class FileSaver {
 
 				i++;
 			}
-			while (i < downloaded.list.size());
+			while (i < downloaded.size());
 
 			// If piece was not found, wait 1 second and repeat
 			if (!foundNextPiece) {
