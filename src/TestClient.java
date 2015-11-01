@@ -33,7 +33,12 @@ public class TestClient {
 			while ((userInput = stdIn.readLine()) != null) {
 				//if (userInput == "handshake\n") {
 					System.out.println("Sending request");
-					peer.sendPiece(10, 20, 30, "abcdefghij".getBytes());
+					//peer.sendPiece(10, 20, 30, "abcdefghij".getBytes());
+					peer.sendRequest(0, 0, 5);
+					System.out.println(peer.receiveMessage().getBlock());
+					
+					peer.sendRequest(0, 5, 5);
+					System.out.println(peer.receiveMessage().getBlock());
 				/*}
 				else {
 				    out.println(userInput);

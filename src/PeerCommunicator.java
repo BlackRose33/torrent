@@ -34,6 +34,9 @@ public class PeerCommunicator {
     private boolean localInterested, localChoked,
                     remoteInterested, remoteChoked;
 
+    // Requested file
+    private byte[] current_file_hash;
+
     // FileManager to refer to
     private FileManager fm;
 
@@ -88,7 +91,7 @@ public class PeerCommunicator {
         }
 
         // Set timeout - give time to connection to establish
-        socket.setSoTimeout(2000);
+        socket.setSoTimeout(5000);
 
         // Get the IO streams from the socket
         try {
@@ -153,6 +156,10 @@ public class PeerCommunicator {
         Utils.printlnLog("Handshake response: " + new String(handshakeResponse));
 
         MsgUtils.verifyHandShakeResponse(handshakeResponse, handshake, remotePeerID);
+
+        // Once handshake succeeded, set the hash
+        this.current_file_hash = infoHash;
+
       } catch (SocketTimeoutException ex) {
             Utils.printLog("####### SocketTimeoutException ######");
             throw new PeerCommunicationException("Connection with peer is not alive!");
@@ -193,6 +200,9 @@ public class PeerCommunicator {
         // Send reply handshake
         try {
             sendMessage(MsgUtils.buildHandshake(localPeerID, file_hash));
+
+            // Set hash of requested file
+            this.current_file_hash = file_hash;
         }
         catch (Exception e) {
             throw new PeerCommunicationException("Connection with remote peer is dead");
@@ -240,12 +250,34 @@ public class PeerCommunicator {
         if (!replyHandshake())
             Utils.printlnLog("Connection to incoming peer dropped");
 
-        /* Loop and keep replying any messages
-        while ((received_message = peer.receiveMessage()) != null) {
-            switch (received_message.getType()) {
-                case MsgType.
+        // Loop and keep replying any messages
+        while ((received_message = receiveMessage()) != null) {
+            // Print it to screen
+            System.out.println(received_message);
+
+            // Decide what to reply
+            switch (MsgType.getID(received_message.getType())) {
+                // Don't send any reply for these messages
+                case CHOKE:
+                case UNCHOKE:
+                case INTERESTED:
+                case UNINTERESTED:
+                case BITFIELD:
+                case HAVE:
+                case PIECE:
+                    break;
+
+                // Send the requested piece
+                case REQUEST:
+                    //byte[] data = fm.getBlock(current_file_hash, offset, length);
+                    Block block = received_message.getBlock();
+                    block.setData(fm.getBlock(current_file_hash, block.getOffset(), block.getLength()));
+                    sendPiece(received_message.getBlock());
+                    break;
+                default:
+                    break;
             }
-        }*/
+        }
     }
 
 
@@ -297,7 +329,9 @@ public class PeerCommunicator {
         this.sendMessage(MsgUtils.buildPiece(block));
     }
 
-    public void sendPiece(int length, int index, int offset, byte[] data)throws Exception {
+    public void sendPiece(int length, int index, int offset, byte[] data) throws Exception {
+        // Retrieve data from the requested file
+        // TODO: Add the default file size * pieces + offset
         this.sendMessage(MsgUtils.buildPiece(length, index, offset, data));
     }
 
