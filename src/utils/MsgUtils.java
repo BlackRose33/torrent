@@ -8,6 +8,7 @@ import model.TorrentStats;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.*;
 
 /** group 16
  * Created by nadiachepurko on 10/3/15.
@@ -118,9 +119,9 @@ public class MsgUtils {
         return have.array();
     }
 
-    public static byte[] buildBitfield(byte[] bitfield) {
-        ByteBuffer message = build(MsgType.BITFIELD, bitfield.length/8);
-        message.put(bitfield);
+    public static byte[] buildBitfield(BitSet bitfield, int length) {
+        ByteBuffer message = build(MsgType.BITFIELD, length/8);
+        message.put(bitfield.toByteArray());
         return message.array();
     }
 

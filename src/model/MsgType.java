@@ -9,10 +9,10 @@ public enum MsgType {
 	INTERESTED    (2, 0),
 	UNINTERESTED  (3, 0),
 	HAVE          (4, 4),
-	BITFIELD      (5, 1),
-	REQUEST       (6, 13),
-	PIECE         (7, 9),
-	CANCEL        (8, 13);
+	BITFIELD      (5, 0),
+	REQUEST       (6, 12),
+	PIECE         (7, 8),
+	CANCEL        (8, 12);
 
 	private final byte id;
 	private final int length;

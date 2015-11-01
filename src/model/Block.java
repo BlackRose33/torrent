@@ -6,12 +6,18 @@ import java.util.Arrays;
  */
 public class Block implements Comparable<Block>{
 
-    private Integer index;
+    // Index represents the index of the block within the piece
+    // So, it's calculated using offset / block's length
+    public Integer index;
+
     private int pieceIndex;
     private int offset;
+    
     private int length;
-    private byte[] data;
+    private byte[] data = null;
 
+
+    // Compares blocks using the index value
     @Override
     public int compareTo(Block that) {
         return this.index.compareTo(that.index);
@@ -30,6 +36,7 @@ public class Block implements Comparable<Block>{
     }
 
 
+    // Equality is determined by pieceindex and offset, not length of the block
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -43,6 +50,8 @@ public class Block implements Comparable<Block>{
         return true;
     }
 
+
+    // This is not being used anywhere....
     @Override
     public int hashCode() {
         int result = pieceIndex;
@@ -84,7 +93,7 @@ public class Block implements Comparable<Block>{
                 ", index=" + index +
                 ", offset=" + offset +
                 ", length=" + length +
-                ", data=" + Arrays.toString(data) +
+                ((data != null) ? ", data=" + Arrays.toString(data) : ", data={}") +
                 '}';
     }
 }
