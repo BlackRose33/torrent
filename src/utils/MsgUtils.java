@@ -4,7 +4,6 @@ import exceptions.PeerCommunicationException;
 import model.Block;
 import model.Message;
 import model.MsgType;
-import model.TorrentStats;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
