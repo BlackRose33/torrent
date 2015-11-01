@@ -173,9 +173,6 @@ public class MsgUtils {
         return message.array();
     }
 
-    public static int toBitSetIndex(int index, int bitSetLength) {
-        return Math.abs(bitSetLength - index - 1);
-    }
 
     public static void verifyHandShakeResponse(byte[] handshakeResponse, byte[] handshake, String peerIdExpected) throws Exception{
         // Fail if both handshakes are completely the same
