@@ -19,16 +19,17 @@ public class ExecutionThreads {
         private final SynchronousListOfPieces downloaded;
         private final String file_hash;
 
-        // This value represents if the download algorithm is still pumping data into toDownload queue
-        private final Boolean waitWhenToDownloadIsEmpty;
+        // Thread that puts pieces into "toDownload" queue
+        // Used to check if this is still putting pieces in the queue, if not we can exit safely
+        private final Thread inputThread;
 
         public PeerCommunicationThread(
             PeerCommunicator peerComm, SynchronousListOfPieces toDownload,
-            SynchronousListOfPieces downloaded, Boolean waitWhenToDownloadIsEmpty, String file_hash) {
+            SynchronousListOfPieces downloaded, Thread inputThread, String file_hash) {
             this.peerComm = peerComm;
             this.toDownload = toDownload;
             this.downloaded = downloaded;
-            this.waitWhenToDownloadIsEmpty = waitWhenToDownloadIsEmpty;
+            this.inputThread = inputThread;
             this.file_hash = file_hash;
         }
 
@@ -45,7 +46,7 @@ public class ExecutionThreads {
 			System.out.println("Starting download");
             // Keep looping until list is empty
             // If more blocks are incoming, wait until they all are loaded
-            while (toDownload.size() > 0 || waitWhenToDownloadIsEmpty) {
+            while (toDownload.size() > 0 || inputThread.isAlive()) {
                 // If list is empty right now, wait a few milliseconds and try again
                 if (toDownload.size() == 0) {
                     Thread.sleep(100);
@@ -148,14 +149,17 @@ public class ExecutionThreads {
     	private SynchronousListOfPieces toDownload;
 
     	// Details for the pieces
-    	private int numberOfBlocks;
+        private int piece_size, file_size;
 
     	public DownloadAlgorithmThread(
     		DownloadAlgorithm downloadAlgorithm,
     		SynchronousListOfPieces toDownload,
-    		int numberOfBlocks) {
+            int piece_size,
+            int file_size) {
     		this.downloadAlgorithm = downloadAlgorithm;
     		this.toDownload = toDownload;
+            this.piece_size = piece_size;
+            this.file_size = file_size;
     	}
 
 
@@ -167,7 +171,16 @@ public class ExecutionThreads {
             System.out.println("Start loading pieces");
     		// End of pieces is marked as -1
     		while ((nextPiece = downloadAlgorithm.getNextPiece()) != -1) {
-    			toDownload.add(new Piece(nextPiece, numberOfBlocks));
+                Piece piece = new Piece(nextPiece, piece_size / Block.BLOCK_LENGTH);
+                
+                // Last piece? (Remember the additional piece added in download algorithm)
+                if (nextPiece == downloadAlgorithm.numberOfPieces
+                    && file_size % piece_size != 0) {
+                    piece.isLastPiece(file_size % piece_size);
+                }
+    			
+                // Add to queue
+                toDownload.add(piece);
                 System.out.println("Added piece index " + nextPiece);
     		}
     	}
@@ -178,7 +191,7 @@ public class ExecutionThreads {
     	SynchronousListOfPieces toDownload = new SynchronousListOfPieces(new LinkedList<Piece>());
 
     	DownloadAlgorithmThread da_thread = new DownloadAlgorithmThread(
-    		new DownloadAlgorithm(5), toDownload, 3);
+    		new DownloadAlgorithm(5), toDownload, 3, 25);
 
     	Thread thread = new Thread(da_thread);
         thread.start();
@@ -204,7 +217,7 @@ public class ExecutionThreads {
 
         int numberofpieces = 5;
 
-        FileSaver fs = new FileSaver("testsave.txt", numberofpieces, list);
+        FileSaver fs = new FileSaver("testsave.txt", numberofpieces, list, 5);
 
         new Thread(new FileSaverThread(fs)).start();
 

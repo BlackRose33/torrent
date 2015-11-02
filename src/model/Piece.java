@@ -41,6 +41,8 @@ public class Piece {
     public void isLastPiece(int length) { 
         this.lastPiece = true;
         this.lastPieceLength = length;
+        // Recalculate # of blocks (add 1 for the last block)
+        this.blockNumber = length / Block.BLOCK_LENGTH + 1;
     }
 
     public byte[] getData() {

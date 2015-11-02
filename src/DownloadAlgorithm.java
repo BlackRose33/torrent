@@ -3,15 +3,17 @@ import java.io.*;
 
 public class DownloadAlgorithm {
 
-	private int numberOfPieces;
+	public int numberOfPieces;
 	private int currentPiece = 0;
 
 	public DownloadAlgorithm(int numberOfPieces) {
 		this.numberOfPieces = numberOfPieces;
 	}
 
+
 	public int getNextPiece() {
-		return (currentPiece < numberOfPieces) ? currentPiece++ : -1;
+		// Always add an extra piece, because the last one will have different length than all the other ones.
+		return (currentPiece <= numberOfPieces) ? currentPiece++ : -1;
 	}
 
 	public static void main(String[] args) {

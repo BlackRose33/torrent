@@ -26,6 +26,9 @@ public class PeerCommunicator {
     private final static int THREAD_SLEEP_INTERVAL = 1000;
     private static final int KEEP_ALIVE_INTERVAL = 120000;
 
+    // FOR TESTING ONLY
+    public static final int PIECE_SIZE = 12;
+
 
     // Peer IDs
     private String localPeerID, remotePeerID;
@@ -36,6 +39,7 @@ public class PeerCommunicator {
 
     // Requested file
     private byte[] current_file_hash;
+    public int piece_size = PIECE_SIZE;
 
     // FileManager to refer to
     private FileManager fm;
@@ -46,8 +50,8 @@ public class PeerCommunicator {
     private DataInputStream in;
 
     // For new connections
-    private String remoteIP;
-    private int    remotePort;
+    public String remoteIP;
+    private int   remotePort;
 
     // Last Keep-Alive time
     private long lastKeepAliveTime;
@@ -203,6 +207,9 @@ public class PeerCommunicator {
 
             // Set hash of requested file
             this.current_file_hash = file_hash;
+
+            // Set the piece size to use
+            this.piece_size = this.fm.getPieceSize(Utils.toHex(file_hash));
         }
         catch (Exception e) {
             throw new PeerCommunicationException("Connection with remote peer is dead");
@@ -271,7 +278,9 @@ public class PeerCommunicator {
                 case REQUEST:
                     //byte[] data = fm.getBlock(current_file_hash, offset, length);
                     Block block = received_message.getBlock();
-                    block.setData(fm.getBlock(current_file_hash, block.getOffset(), block.getLength()));
+                    System.out.println("piece size: " + piece_size + " - pieceindex: " + block.pieceIndex + " - block offset: " + block.offset);
+                    System.out.println("BLOCK OFFSET REAL: " + block.getRealOffset(piece_size));
+                    block.setData(fm.getBlock(current_file_hash, block.getRealOffset(piece_size), block.getLength()));
                     sendPiece(received_message.getBlock());
                     break;
                 default:
@@ -313,6 +322,10 @@ public class PeerCommunicator {
         this.localInterested = false;
     }
 
+    public void sendHave(int piece_index) throws Exception {
+        this.sendMessage(MsgUtils.buildHave(piece_index));
+    }
+
     public void sendBitfield(BitSet bitfield, int length) throws IOException, PeerException {
         this.sendMessage(MsgUtils.buildBitfield(bitfield, length));
     }
@@ -331,7 +344,6 @@ public class PeerCommunicator {
 
     public void sendPiece(int length, int index, int offset, byte[] data) throws Exception {
         // Retrieve data from the requested file
-        // TODO: Add the default file size * pieces + offset
         this.sendMessage(MsgUtils.buildPiece(length, index, offset, data));
     }
 

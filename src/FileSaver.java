@@ -10,14 +10,18 @@ public class FileSaver {
 	private String fileName;
 	private int totalNumberOfPieces;
 	private SynchronousListOfPieces downloaded;
+	private int piece_size;
 
 	private int savedPieces;
 	private RandomAccessFile outFile;
 
-	public FileSaver(String fileName, int totalNumberOfPieces, SynchronousListOfPieces downloaded) throws FileNotFoundException {
+	public FileSaver(String fileName, int totalNumberOfPieces, 
+			SynchronousListOfPieces downloaded, int piece_size) throws FileNotFoundException {
 		this.fileName = fileName;
 		this.totalNumberOfPieces = totalNumberOfPieces;
 		this.downloaded = downloaded;
+		this.piece_size = piece_size;
+
 		this.savedPieces = 0;
 
 		// Open outFile
@@ -27,7 +31,7 @@ public class FileSaver {
 	// Save all file
 	// Pieces are saved in order
 	public void saveFile() throws Exception {
-		Piece piece;
+		Piece piece = null;
 
 		while (savedPieces < totalNumberOfPieces) {
 			System.out.println("Next Piece to save: " + savedPieces);
@@ -35,8 +39,21 @@ public class FileSaver {
 			int i = 0;
 			boolean foundNextPiece = false;
 			do {
-				piece = downloaded.getIndex(i);
-				System.out.println("Piece found: " + piece.getIndex());
+				try {
+					piece = downloaded.getIndex(i);
+				}
+				// This only hits if queue is completely empty
+				// Only wait until something is inserted
+				catch (IndexOutOfBoundsException e) {
+					System.out.println("Waiting pieces to save, 1 second");
+					Thread.sleep(1000);
+				}
+				
+				if (piece == null)
+					continue;
+				
+				System.out.println("Piece found: " + piece.index);
+
 				// If found the right piece, break
 				if (piece.getIndex() == savedPieces) {
 					foundNextPiece = true;
@@ -50,14 +67,14 @@ public class FileSaver {
 
 			// If piece was not found, wait 1 second and repeat
 			if (!foundNextPiece) {
-				System.out.println("Not found, waiting 1 second for it");
-				Thread.sleep(1000);
+				System.out.println("Not found, waiting 50 ms for it");
+				Thread.sleep(50);
 				continue;
 			}
 
 			// Else, save the piece
-			savePiece(piece, piece.data.length);
-			System.out.println("Saved this piece");
+			savePiece(piece, piece.index * piece_size);
+			System.out.println("Saved this piece: " + piece.getData().length);
 			downloaded.remove(i);
 			savedPieces++;
 		}
@@ -67,10 +84,9 @@ public class FileSaver {
 	}
 
     // save piece to file in particular position with piece (block) offset
-    private void savePiece(Piece piece, int length) throws IOException {
-        int pieceDataOffset = piece.getIndex() * length;
-        outFile.seek(pieceDataOffset);
-        outFile.write(piece.data);
+    private void savePiece(Piece piece, int offset) throws IOException {
+        outFile.seek(offset);
+        outFile.write(piece.getData());
     }
 
 
@@ -91,7 +107,7 @@ public class FileSaver {
 
     	int numberofpieces = 5;
 
-    	FileSaver fs = new FileSaver("testsave.txt", numberofpieces, list);
+    	FileSaver fs = new FileSaver("testsave.txt", numberofpieces, list, 5);
 
     	Runnable delayInput = new Runnable() {
     		@Override

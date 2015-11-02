@@ -1,12 +1,10 @@
 package model;
 
 import java.util.Arrays;
-/** group 16
- * Created by nadiachepurko on 10/2/15.
- */
+
 public class Block implements Comparable<Block>{
 
-    public static final int BLOCK_LENGTH = 6;//16384;
+    public static final int BLOCK_LENGTH = 195;//16384;
 
     // Index represents the index of the block within the piece
     // So, it's calculated using offset / block's length
@@ -74,6 +72,10 @@ public class Block implements Comparable<Block>{
 
     public int getOffset() {
         return offset;
+    }
+
+    public int getRealOffset(int piece_size) {
+        return pieceIndex * piece_size + offset;
     }
 
     public int getLength() {

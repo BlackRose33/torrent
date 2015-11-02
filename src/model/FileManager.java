@@ -8,7 +8,8 @@ import utils.*;
 
 public class FileManager {
 	public static final String DEFAULT_FILES_LIST = "list.txt";
-	public static final String DEFAULT_FILE_HASH_PATTERN = "^.*:.*$";
+	// <file_name>:<file_hash URL-hex encoded>:<piece_size>
+	public static final String DEFAULT_FILE_HASH_PATTERN = "^.*:.*:.*$";
 
 	private String file_list;
 	private String file_hash_pattern;
@@ -16,7 +17,8 @@ public class FileManager {
 	private RandomAccessFile file;
 	private Pattern pattern;
 
-	private Map<String,String> file_hash_map;
+	private Map<String,ArrayList<String>> file_hash_map;
+	private int piece_size;
 
 	public FileManager() {
 		this.file_list = FileManager.DEFAULT_FILES_LIST;
@@ -41,7 +43,7 @@ public class FileManager {
 		this.pattern = Pattern.compile(this.file_hash_pattern);
 
 		// Init the map
-		this.file_hash_map = new HashMap();
+		this.file_hash_map = new HashMap<String, ArrayList<String>>();
 		String line;
 		try {
 			while ((line = this.file.readLine()) != null) {
@@ -50,8 +52,13 @@ public class FileManager {
 
 				String[] file_and_hash = line.split(":");
 
+				// Load values into the list first
+				ArrayList<String> values = new ArrayList<String>();
+				values.add(file_and_hash[0]);		// File name
+				values.add(file_and_hash[2]);		// Piece size
+
 				// Load name-hash pair to map
-				this.file_hash_map.put(file_and_hash[1], file_and_hash[0]);
+				this.file_hash_map.put(file_and_hash[1], values);
 			}
 		}
 		catch (Exception e) {
@@ -60,11 +67,18 @@ public class FileManager {
 	}
 
 	public String getFileName(String file_hash) throws IOException {
-		return this.file_hash_map.get(file_hash);
+		return this.file_hash_map.get(file_hash).get(0);
 	}
 
-	public void addMapping(String file_hash, String file_name) {
-		this.file_hash_map.put(file_hash, file_name);
+	public int getPieceSize(String file_hash) throws IOException {
+		return Integer.parseInt(this.file_hash_map.get(file_hash).get(1));
+	}
+
+	public void addMapping(String file_hash, String file_name, String piece_size) {
+		ArrayList<String> values = new ArrayList<String>();
+		values.add(file_name);
+		values.add(piece_size);
+		this.file_hash_map.put(file_hash, values);
 	}
 
 	public byte[] readBytes(String file_hash, int count, int offset) throws IOException {
@@ -165,7 +179,10 @@ public class FileManager {
 	public static void main(String[] args) throws  IOException {
 		FileManager fm = new FileManager();
 
-		fm.addMapping("1256", "list.txt");
+		System.out.println(fm.getFileName("%A7%D3%D5%C5%4F%A6%38%A5%3F%28%0B%C9%41%10%60%EF%26%2D%FE%B6"));
+		System.out.println(fm.getPieceSize("%A7%D3%D5%C5%4F%A6%38%A5%3F%28%0B%C9%41%10%60%EF%26%2D%FE%B6"));
+
+		/*fm.addMapping("1256", "list.txt", "12");
 		int count = 50;
 		// Read file and re-save it with a different name
 		RandomAccessFile outFile = new RandomAccessFile("resaved.txt", "rw");
@@ -180,6 +197,6 @@ public class FileManager {
 			offset += count;
 		}
 
-		outFile.close();
+		outFile.close();*/
 	}
 }
